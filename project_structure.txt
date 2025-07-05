@@ -1,0 +1,1366 @@
+Project Structure and Code for /Users/vishalsingh/python/CS661_dashboard
+Generated on: Sat Jul  5 18:35:44 IST 2025
+
+
+Directory Structure
+
+tree command not found, using find instead
+/Users/vishalsingh/python/CS661_dashboard
+/Users/vishalsingh/python/CS661_dashboard/assets
+/Users/vishalsingh/python/CS661_dashboard/assets/css
+/Users/vishalsingh/python/CS661_dashboard/data
+/Users/vishalsingh/python/CS661_dashboard/data/processed
+/Users/vishalsingh/python/CS661_dashboard/data/raw
+/Users/vishalsingh/python/CS661_dashboard/preprocessing
+/Users/vishalsingh/python/CS661_dashboard/visualizations
+
+Dataset Structure
+
+
+File: /Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_bar_data.csv
+Type: CSV
+Headers:
+category,value,year
+
+File: /Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_area_data.csv
+Type: CSV
+Headers:
+year,Agriculture,Industry,Services
+
+File: /Users/vishalsingh/python/CS661_dashboard/data/processed/mapdata.csv
+Type: CSV
+Headers:
+ISO,hovername,colour code,avg deaths by year,avg economical loss
+
+File: /Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_pie_data.csv
+Type: CSV
+Headers:
+sector,value
+
+File: /Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_treemap_data.csv
+Type: CSV
+Headers:
+path,value
+
+File: /Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_data.csv
+Type: CSV
+Headers:
+path,value
+
+File: /Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_sankey_data.csv
+Type: CSV
+Headers:
+source,target,value
+
+Code Files
+
+Searching for code files with extensions: .py, .ipynb, .js, .html, .css, .java, .cpp, .c, .sh, .sql, .jsx, .ts, .tsx
+Debug: Files found:
+/Users/vishalsingh/python/CS661_dashboard/app2.py
+/Users/vishalsingh/python/CS661_dashboard/layout.py
+/Users/vishalsingh/python/CS661_dashboard/visualizations/viz6.py
+/Users/vishalsingh/python/CS661_dashboard/visualizations/viz2.py
+/Users/vishalsingh/python/CS661_dashboard/visualizations/viz3.py
+/Users/vishalsingh/python/CS661_dashboard/visualizations/viz7.py
+/Users/vishalsingh/python/CS661_dashboard/visualizations/__init__.py
+/Users/vishalsingh/python/CS661_dashboard/visualizations/viz4.py
+/Users/vishalsingh/python/CS661_dashboard/visualizations/viz5.py
+/Users/vishalsingh/python/CS661_dashboard/visualizations/viz1.py
+/Users/vishalsingh/python/CS661_dashboard/preprocessing/preprocess.py
+/Users/vishalsingh/python/CS661_dashboard/preprocessing/__init__.py
+/Users/vishalsingh/python/CS661_dashboard/assets/css/style.css
+
+File: /Users/vishalsingh/python/CS661_dashboard/app2.py
+Content:
+----------------------------------------
+from dash import Dash, html, dcc, Input, Output, callback_context
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from layout import get_layout  # Import the layout function
+from visualizations.viz1 import get_sunburst_viz
+from visualizations.viz2 import get_sankey_viz
+from visualizations.viz3 import get_bar_viz
+from visualizations.viz4 import get_treemap_viz
+from visualizations.viz5 import get_stacked_area_viz
+from visualizations.viz6 import get_pie_viz
+from visualizations.viz7 import get_choropleth_viz
+
+# Initialize the Dash app
+app = Dash(__name__, 
+           assets_folder="/Users/vishalsingh/python/CS661_dashboard/assets",
+           external_stylesheets=['https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css'])
+
+# Load datasets
+data_files = {
+    'sunburst': "/Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_data.csv",
+    'sankey': "/Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_sankey_data.csv",
+    'bar': "/Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_bar_data.csv",
+    'treemap': "/Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_treemap_data.csv",
+    'area': "/Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_area_data.csv",
+    'pie': "/Users/vishalsingh/python/CS661_dashboard/data/processed/india_gdp_pie_data.csv",
+    'choropleth': "/Users/vishalsingh/python/CS661_dashboard/data/processed/mapdata.csv"
+}
+
+datasets = {}
+for name, path in data_files.items():
+    try:
+        df = pd.read_csv(path)
+        if name in ['sunburst', 'treemap']:
+            if 'path' not in df.columns:
+                print(f"Error: '{path}' missing 'path' column.")
+                df = pd.DataFrame()
+            else:
+                try:
+                    df['path'] = df['path'].apply(eval)
+                except Exception as e:
+                    print(f"Error parsing 'path' in {path}: {str(e)}")
+                    df = pd.DataFrame()
+        datasets[name] = df
+        print(f"Loaded {path} with columns: {df.columns.tolist()}")
+    except Exception as e:
+        print(f"Error loading {path}: {str(e)}")
+        datasets[name] = pd.DataFrame()
+
+# Calculate some KPIs from your data
+def calculate_kpis():
+    kpis = {}
+    if not datasets['pie'].empty:
+        total_gdp = datasets['pie']['value'].sum()
+        kpis['total_gdp'] = f"${total_gdp:.0f}B"
+        kpis['services_percent'] = f"{(datasets['pie'][datasets['pie']['sector'] == 'Services']['value'].iloc[0] / total_gdp * 100):.1f}%"
+    
+    if not datasets['bar'].empty:
+        latest_year = datasets['bar']['year'].max()
+        kpis['latest_year'] = latest_year
+        kpis['sectors_count'] = len(datasets['bar']['category'].unique())
+    
+    return kpis
+
+kpis = calculate_kpis()
+
+# Set the app layout
+app.layout = get_layout(kpis, datasets)
+
+# Callback for interactive bar chart
+@app.callback(
+    Output("bar-viz", "figure"),
+    Input("year-dropdown", "value")
+)
+def update_bar_chart(year):
+    if year is None or datasets['bar'].empty:
+        return px.bar()
+    try:
+        return get_bar_viz(datasets['bar'], year)
+    except Exception as e:
+        print(f"Error updating bar chart: {str(e)}")
+        return px.bar()
+
+if __name__ == "__main__":
+    app.run(debug=True)
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/layout.py
+Content:
+----------------------------------------
+from dash import html, dcc
+from visualizations.viz1 import get_sunburst_viz
+from visualizations.viz2 import get_sankey_viz
+from visualizations.viz3 import get_bar_viz
+from visualizations.viz4 import get_treemap_viz
+from visualizations.viz5 import get_stacked_area_viz
+from visualizations.viz6 import get_pie_viz
+from visualizations.viz7 import get_choropleth_viz
+
+def get_layout(kpis, datasets):
+    """
+    Defines the layout for the GDP dashboard.
+
+    Parameters:
+    - kpis (dict): Dictionary containing KPI values (e.g., total_gdp, services_percent).
+    - datasets (dict): Dictionary of DataFrames for visualizations.
+
+    Returns:
+    - A Dash HTML Div containing the dashboard layout.
+    """
+    return html.Div([
+        # Sidebar
+        html.Div([
+            html.Div([
+                html.I(className="fas fa-chart-line", style={'fontSize': '24px', 'marginBottom': '10px'}),
+                html.H3("GDP DASHBOARD", style={'color': 'white', 'fontSize': '18px', 'fontWeight': 'bold'})
+            ], className="sidebar-header"),
+            
+            html.Div([
+                html.Div([
+                    html.I(className="fas fa-home sidebar-icon"),
+                    html.Span("Dashboard", className="sidebar-text")
+                ], className="sidebar-item active"),
+                
+                html.Div([
+                    html.I(className="fas fa-chart-bar sidebar-icon"),
+                    html.Span("Analytics", className="sidebar-text")
+                ], className="sidebar-item"),
+                
+                html.Div([
+                    html.I(className="fas fa-calendar sidebar-icon"),
+                    html.Span("Reports", className="sidebar-text")
+                ], className="sidebar-item"),
+                
+                html.Div([
+                    html.I(className="fas fa-cog sidebar-icon"),
+                    html.Span("Settings", className="sidebar-text")
+                ], className="sidebar-item"),
+            ], className="sidebar-menu")
+        ], className="sidebar"),
+        
+        # Main content area
+        html.Div([
+            # Top header
+            html.Div([
+                html.H1("India's GDP Dashboard", className="main-title"),
+                html.Div([
+                    dcc.Input(
+                        id="search-input",
+                        type="text",
+                        placeholder="Search...",
+                        className="search-input"
+                    ),
+                    html.I(className="fas fa-search search-icon"),
+                    html.Div([
+                        html.I(className="fas fa-bell notification-icon"),
+                        html.Span("1", className="notification-badge")
+                    ], className="notification-container"),
+                    html.Div([
+                        html.Span("Admin User", className="user-name"),
+                        html.Div(className="user-avatar")
+                    ], className="user-info")
+                ], className="header-controls")
+            ], className="header"),
+            
+            # KPI Cards Row
+            html.Div([
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-chart-line kpi-icon", style={'color': '#4CAF50'}),
+                        html.Div([
+                            html.H3(kpis.get('total_gdp', '$700B'), className="kpi-value"),
+                            html.P("Total GDP", className="kpi-label")
+                        ], className="kpi-text")
+                    ], className="kpi-content")
+                ], className="kpi-card kpi-green"),
+                
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-industry kpi-icon", style={'color': '#2196F3'}),
+                        html.Div([
+                            html.H3(kpis.get('services_percent', '47%'), className="kpi-value"),
+                            html.P("Services Share", className="kpi-label")
+                        ], className="kpi-text")
+                    ], className="kpi-content")
+                ], className="kpi-card kpi-blue"),
+                
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-calendar kpi-icon", style={'color': '#FF9800'}),
+                        html.Div([
+                            html.H3(str(kpis.get('latest_year', '2024')), className="kpi-value"),
+                            html.P("Latest Year", className="kpi-label")
+                        ], className="kpi-text")
+                    ], className="kpi-content")
+                ], className="kpi-card kpi-orange"),
+                
+                html.Div([
+                    html.Div([
+                        html.I(className="fas fa-chart-pie kpi-icon", style={'color': '#9C27B0'}),
+                        html.Div([
+                            html.H3(str(kpis.get('sectors_count', '3')), className="kpi-value"),
+                            html.P("Sectors", className="kpi-label")
+                        ], className="kpi-text")
+                    ], className="kpi-content")
+                ], className="kpi-card kpi-purple")
+            ], className="kpi-row"),
+            
+            # Charts Grid
+            html.Div([
+                # New row for choropleth map (Position 1)
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.H4("World Choropleth Map", className="chart-title"),
+                            html.I(className="fas fa-expand chart-expand")
+                        ], className="chart-header"),
+                        dcc.Graph(id="choropleth-viz", figure=get_choropleth_viz(datasets['choropleth']), className="chart-graph")
+                    ], className="chart-card large-chart map-chart")
+                ], className="chart-row"),
+                
+                # Row 1: Large charts
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.H4("GDP by Sector", className="chart-title"),
+                            html.I(className="fas fa-expand chart-expand")
+                        ], className="chart-header"),
+                        dcc.Graph(id="pie-viz", figure=get_pie_viz(datasets['pie']), className="chart-graph")
+                    ], className="chart-card large-chart"),
+                    
+                    html.Div([
+                        html.Div([
+                            html.H4("GDP Over Time", className="chart-title"),
+                            html.I(className="fas fa-expand chart-expand")
+                        ], className="chart-header"),
+                        dcc.Graph(id="area-viz", figure=get_stacked_area_viz(datasets['area']), className="chart-graph")
+                    ], className="chart-card large-chart")
+                ], className="chart-row"),
+                
+                # Row 2: Medium charts
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.H4("Sector Analysis", className="chart-title"),
+                            dcc.Dropdown(
+                                id="year-dropdown",
+                                options=[{'label': year, 'value': year} for year in datasets['bar']['year'].unique()] if not datasets['bar'].empty else [],
+                                value=datasets['bar']['year'].iloc[0] if not datasets['bar'].empty else None,
+                                className="chart-dropdown"
+                            ),
+                            html.I(className="fas fa-expand chart-expand")
+                        ], className="chart-header"),
+                        dcc.Graph(id="bar-viz", className="chart-graph")
+                    ], className="chart-card medium-chart"),
+                    
+                    html.Div([
+                        html.Div([
+                            html.H4("GDP Flow", className="chart-title"),
+                            html.I(className="fas fa-expand chart-expand")
+                        ], className="chart-header"),
+                        dcc.Graph(id="sankey-viz", figure=get_sankey_viz(datasets['sankey']), className="chart-graph")
+                    ], className="chart-card medium-chart")
+                ], className="chart-row"),
+                
+                # Row 3: Complex visualizations
+                html.Div([
+                    html.Div([
+                        html.Div([
+                            html.H4("Hierarchical View", className="chart-title"),
+                            html.I(className="fas fa-expand chart-expand")
+                        ], className="chart-header"),
+                        dcc.Graph(id="sunburst-viz", figure=get_sunburst_viz(datasets['sunburst']), className="chart-graph")
+                    ], className="chart-card large-chart"),
+                    
+                    html.Div([
+                        html.Div([
+                            html.H4("Treemap Analysis", className="chart-title"),
+                            html.I(className="fas fa-expand chart-expand")
+                        ], className="chart-header"),
+                        dcc.Graph(id="treemap-viz", figure=get_treemap_viz(datasets['treemap']), className="chart-graph")
+                    ], className="chart-card large-chart")
+                ], className="chart-row")
+            ], className="charts-grid")
+        ], className="main-content")
+    ], className="dashboard-container")
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/visualizations/viz6.py
+Content:
+----------------------------------------
+import pandas as pd
+import plotly.express as px
+
+def get_pie_viz(data: pd.DataFrame) -> px.pie:
+    """
+    Creates a static pie chart for GDP contributions by sector.
+
+    Parameters:
+    - data (pd.DataFrame): A DataFrame with columns 'sector' (string) and 'value' (numeric).
+
+    Returns:
+    - A Plotly pie figure.
+    """
+    try:
+        # Validate required columns
+        required_columns = ['sector', 'value']
+        if not all(col in data.columns for col in required_columns):
+            raise ValueError("DataFrame must have 'sector' and 'value' columns.")
+
+        # Validate 'value' column is numerical
+        if not pd.api.types.is_numeric_dtype(data['value']):
+            raise ValueError("'value' column must be numerical.")
+
+        # Create the pie chart
+        fig = px.pie(
+            data,
+            names='sector',
+            values='value',
+            title="India's GDP by Sector (Pie Chart)",
+            color_discrete_sequence=px.colors.qualitative.Pastel
+        )
+
+        # Update layout
+        fig.update_layout(
+            margin=dict(t=50, l=25, r=25, b=25),
+            title_font_size=20
+        )
+
+        return fig
+
+    except Exception as e:
+        print(f"Error creating pie chart: {str(e)}")
+        return px.pie()  # Return an empty figure if there's an error
+
+# Example usage for testing
+if __name__ == "__main__":
+    # Sample data
+    sample_data = pd.DataFrame({
+        'sector': ['Agriculture', 'Industry', 'Services'],
+        'value': [110, 260, 330]
+    })
+    fig = get_pie_viz(sample_data)
+    fig.show()
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/visualizations/viz2.py
+Content:
+----------------------------------------
+import pandas as pd
+import plotly.graph_objects as go
+
+def get_sankey_viz(data: pd.DataFrame) -> go.Figure:
+    """
+    Creates a Sankey diagram using the provided preprocessed data.
+
+    Parameters:
+    - data (pd.DataFrame): A DataFrame with columns 'source', 'target', and 'value'.
+
+    Returns:
+    - A Plotly Sankey figure.
+    """
+    try:
+        # Validate required columns
+        required_columns = ['source', 'target', 'value']
+        if not all(col in data.columns for col in required_columns):
+            raise ValueError("DataFrame must have 'source', 'target', and 'value' columns.")
+        
+        # Validate value column is numerical
+        if not pd.api.types.is_numeric_dtype(data['value']):
+            raise ValueError("The 'value' column must be numerical.")
+
+        # Create a list of unique nodes
+        nodes = list(set(data['source']).union(set(data['target'])))
+        node_indices = {node: idx for idx, node in enumerate(nodes)}
+
+        # Prepare links for Sankey diagram
+        link_source = [node_indices[src] for src in data['source']]
+        link_target = [node_indices[tgt] for tgt in data['target']]
+        link_value = data['value'].tolist()
+
+        # Create the Sankey diagram
+        fig = go.Figure(data=[go.Sankey(
+            node=dict(
+                pad=15,
+                thickness=20,
+                line=dict(color="black", width=0.5),
+                label=nodes,
+                color="lightblue"
+            ),
+            link=dict(
+                source=link_source,
+                target=link_target,
+                value=link_value,
+                color="rgba(0, 184, 255, 0.5)"
+            )
+        )])
+
+        # Update layout
+        fig.update_layout(
+            title_text="India's GDP Flow (Sankey Diagram)",
+            font_size=12,
+            margin=dict(t=50, l=25, r=25, b=25)
+        )
+
+        return fig
+
+    except Exception as e:
+        # Handle errors gracefully
+        print(f"Error creating Sankey diagram: {str(e)}")
+        return go.Figure()  # Return an empty figure if there's an error
+
+# Example usage for testing
+if __name__ == "__main__":
+    # Sample data
+    sample_data = pd.DataFrame({
+        'source': ['Agriculture', 'Agriculture', 'Crops', 'Crops', 'Industry', 'Industry', 
+                   'Manufacturing', 'Manufacturing', 'Services', 'Services', 'Services'],
+        'target': ['Crops', 'Livestock', 'Food Crops', 'Cash Crops', 'Manufacturing', 'Construction', 
+                   'Electronics', 'Textiles', 'IT Services', 'Tourism', 'Finance'],
+        'value': [80, 20, 50, 30, 180, 60, 100, 80, 150, 70, 90]
+    })
+    fig = get_sankey_viz(sample_data)
+    fig.show()
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/visualizations/viz3.py
+Content:
+----------------------------------------
+
+import pandas as pd
+import plotly.express as px
+
+def get_bar_viz(data: pd.DataFrame, year: str = "2024") -> px.bar:
+    """
+    Creates a bar chart for GDP contributions by category for a given year.
+
+    Parameters:
+    - data (pd.DataFrame): A DataFrame with columns 'category', 'value', 'year'.
+    - year (str): The year to filter the data (default: '2024').
+
+    Returns:
+    - A Plotly bar figure.
+    """
+    try:
+        # Validate required columns
+        required_columns = ['category', 'value', 'year']
+        if not all(col in data.columns for col in required_columns):
+            raise ValueError("DataFrame must have 'category', 'value', and 'year' columns.")
+        
+        # Validate value column is numerical
+        if not pd.api.types.is_numeric_dtype(data['value']):
+            raise ValueError("The 'value' column must be numerical.")
+
+        # Filter data for the selected year
+        filtered_data = data[data['year'] == year]
+
+        # Create the bar chart
+        fig = px.bar(
+            filtered_data,
+            x='category',
+            y='value',
+            title=f"GDP Contributions by Sector ({year})",
+            labels={'value': 'GDP (Billions USD)', 'category': 'Sector'},
+            color='category'
+        )
+
+        # Update layout
+        fig.update_layout(
+            xaxis_title="Sector",
+            yaxis_title="GDP (Billions USD)",
+            showlegend=False,
+            margin=dict(t=50, l=25, r=25, b=25)
+        )
+
+        return fig
+
+    except Exception as e:
+        print(f"Error creating bar chart: {str(e)}")
+        return px.bar()  # Return an empty figure if there's an error
+
+# Example usage for testing
+if __name__ == "__main__":
+    # Sample data
+    sample_data = pd.DataFrame({
+        'category': ['Agriculture', 'Industry', 'Services', 'Agriculture', 'Industry', 'Services'],
+        'value': [100, 240, 310, 110, 260, 330],
+        'year': ['2023', '2023', '2023', '2024', '2024', '2024']
+    })
+    fig = get_bar_viz(sample_data, year="2024")
+    fig.show()
+
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/visualizations/viz7.py
+Content:
+----------------------------------------
+import pandas as pd
+import plotly.express as px
+
+def get_choropleth_viz(data: pd.DataFrame, value_col: str = 'avg deaths by year', location_col: str = 'ISO', hover_name_col: str = 'hovername') -> px.choropleth:
+    """
+    Creates a choropleth map visualization for world data.
+
+    Parameters:
+    - data (pd.DataFrame): A DataFrame with columns for locations, values, and hover names.
+    - value_col (str): The column name for the values to color the map by (default: 'avg deaths by year').
+    - location_col (str): The column name for the country ISO codes (default: 'ISO').
+    - hover_name_col (str): The column name for the country names in hover tooltips (default: 'hovername').
+
+    Returns:
+    - A Plotly choropleth figure.
+    """
+    try:
+        # Validate required columns
+        required_cols = [location_col, value_col, hover_name_col]
+        if not all(col in data.columns for col in required_cols):
+            raise ValueError(f"DataFrame must have {', '.join(required_cols)} columns.")
+        
+        # Validate value column is numerical
+        if not pd.api.types.is_numeric_dtype(data[value_col]):
+            raise ValueError(f"'{value_col}' column must be numerical.")
+        
+        # Create choropleth map
+        fig = px.choropleth(
+            data,
+            locations=location_col,
+            color=value_col,
+            hover_name=hover_name_col,
+            color_continuous_scale='Viridis',
+            title="World Choropleth Map"
+        )
+        
+        # Update layout
+        fig.update_layout(
+            margin=dict(t=50, l=25, r=25, b=25),
+            title_font_size=20
+        )
+        
+        return fig
+    
+    except Exception as e:
+        print(f"Error creating choropleth map: {str(e)}")
+        return px.choropleth()  # Return an empty figure
+
+# Example usage for testing
+if __name__ == "__main__":
+    # Sample data
+    sample_data = pd.DataFrame({
+        'ISO': ['USA', 'IND', 'BRA'],
+        'hovername': ['United States', 'India', 'Brazil'],
+        'colour code': ['A', 'B', 'A'],
+        'avg deaths by year': [1000, 2000, 1500],
+        'avg economical loss': [500000, 300000, 400000]
+    })
+    fig = get_choropleth_viz(sample_data)
+    fig.show()
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/visualizations/__init__.py
+Content:
+----------------------------------------
+
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/visualizations/viz4.py
+Content:
+----------------------------------------
+
+import pandas as pd
+import plotly.express as px
+
+def get_treemap_viz(data: pd.DataFrame) -> px.treemap:
+    """
+    Creates an interactive treemap visualization using the provided preprocessed data.
+
+    Parameters:
+    - data (pd.DataFrame): A DataFrame with columns 'path' (list of strings) and 'value' (numeric).
+
+    Returns:
+    - A Plotly treemap figure.
+    """
+    try:
+        # Validate required columns
+        if 'path' not in data.columns or 'value' not in data.columns:
+            raise ValueError("DataFrame must have 'path' and 'value' columns.")
+
+        # Validate 'path' column contains lists
+        if not all(isinstance(p, list) for p in data['path']):
+            raise ValueError("'path' column must contain lists of strings.")
+
+        # Validate 'value' column is numerical
+        if not pd.api.types.is_numeric_dtype(data['value']):
+            raise ValueError("'value' column must be numerical.")
+
+        # Debug: Print sample data
+        print("Treemap data sample:", data.head().to_dict())
+
+        # Transform 'path' into separate columns
+        max_depth = max(len(path) for path in data['path'])
+        path_columns = [f'level{i+1}' for i in range(max_depth)]
+        path_df = pd.DataFrame(data['path'].tolist(), columns=path_columns, index=data.index)
+        transformed_data = pd.concat([path_df, data['value']], axis=1)
+
+        # Create the treemap visualization
+        fig = px.treemap(
+            transformed_data,
+            path=path_columns,
+            values='value',
+            title="India's GDP Treemap",
+            color='value',
+            color_continuous_scale='Blues'
+        )
+
+        # Update layout
+        fig.update_layout(
+            margin=dict(t=50, l=25, r=25, b=25),
+            title_font_size=20
+        )
+
+        return fig
+
+    except Exception as e:
+        print(f"Error creating treemap visualization: {str(e)}")
+        return px.treemap()  # Return an empty figure if there's an error
+
+# Example usage for testing
+if __name__ == "__main__":
+    # Sample data
+    sample_data = pd.DataFrame({
+        'path': [
+            ['Agriculture', 'Crops'],
+            ['Agriculture', 'Livestock'],
+            ['Industry', 'Manufacturing'],
+            ['Services', 'IT Services']
+        ],
+        'value': [80, 20, 180, 150]
+    })
+    fig = get_treemap_viz(sample_data)
+    fig.show()
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/visualizations/viz5.py
+Content:
+----------------------------------------
+import pandas as pd
+import plotly.graph_objects as go
+
+def get_stacked_area_viz(data: pd.DataFrame) -> go.Figure:
+    """
+    Creates a static stacked area chart for GDP contributions over time.
+
+    Parameters:
+    - data (pd.DataFrame): A DataFrame with columns 'year', 'Agriculture', 'Industry', 'Services' (numeric).
+
+    Returns:
+    - A Plotly figure.
+    """
+    try:
+        # Validate required columns
+        required_columns = ['year', 'Agriculture', 'Industry', 'Services']
+        if not all(col in data.columns for col in required_columns):
+            raise ValueError("DataFrame must have 'year', 'Agriculture', 'Industry', and 'Services' columns.")
+
+        # Validate numerical columns
+        for col in ['Agriculture', 'Industry', 'Services']:
+            if not pd.api.types.is_numeric_dtype(data[col]):
+                raise ValueError(f"'{col}' column must be numerical.")
+
+        # Create the stacked area chart
+        fig = go.Figure()
+
+        # Add traces for each sector
+        for sector in ['Agriculture', 'Industry', 'Services']:
+            fig.add_trace(go.Scatter(
+                x=data['year'],
+                y=data[sector],
+                name=sector,
+                mode='lines',
+                stackgroup='one',
+                fill='tonexty',
+                line=dict(width=0.5)
+            ))
+
+        # Update layout
+        fig.update_layout(
+            title="GDP Contributions Over Time (Stacked Area)",
+            xaxis_title="Year",
+            yaxis_title="GDP (Billions USD)",
+            showlegend=True,
+            margin=dict(t=50, l=25, r=25, b=25)
+        )
+
+        return fig
+
+    except Exception as e:
+        print(f"Error creating stacked area chart: {str(e)}")
+        return go.Figure()  # Return an empty figure if there's an error
+
+# Example usage for testing
+if __name__ == "__main__":
+    # Sample data
+    sample_data = pd.DataFrame({
+        'year': ['2018', '2019', '2020', '2021', '2022', '2023', '2024'],
+        'Agriculture': [80, 85, 90, 95, 100, 105, 110],
+        'Industry': [200, 210, 220, 230, 240, 250, 260],
+        'Services': [250, 270, 280, 290, 310, 320, 330]
+    })
+    fig = get_stacked_area_viz(sample_data)
+    fig.show()
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/visualizations/viz1.py
+Content:
+----------------------------------------
+
+import pandas as pd
+import plotly.express as px
+
+def get_sunburst_viz(data: pd.DataFrame) -> px.sunburst:
+    """
+    Creates a sunburst visualization using the provided preprocessed data.
+
+    Parameters:
+    - data (pd.DataFrame): A DataFrame with columns 'path' (list of strings) and 'value' (numeric).
+
+    Returns:
+    - A Plotly sunburst figure.
+    """
+    try:
+        # Validate required columns
+        if 'path' not in data.columns or 'value' not in data.columns:
+            raise ValueError("DataFrame must have 'path' and 'value' columns.")
+
+        # Validate 'path' column contains lists
+        if not all(isinstance(p, list) for p in data['path']):
+            raise ValueError("'path' column must contain lists of strings.")
+
+        # Validate 'value' column is numerical
+        if not pd.api.types.is_numeric_dtype(data['value']):
+            raise ValueError("'value' column must be numerical.")
+
+        # Debug: Print sample data
+        print("Sunburst data sample:", data.head().to_dict())
+
+        # Transform 'path' into separate columns
+        max_depth = max(len(path) for path in data['path'])
+        path_columns = [f'level{i+1}' for i in range(max_depth)]
+        path_df = pd.DataFrame(data['path'].tolist(), columns=path_columns, index=data.index)
+        transformed_data = pd.concat([path_df, data['value']], axis=1)
+
+        # Create the sunburst visualization
+        fig = px.sunburst(
+            transformed_data,
+            path=path_columns,
+            values='value',
+            title="India's GDP Sunburst"
+        )
+
+        # Update layout
+        fig.update_layout(
+            margin=dict(t=50, l=25, r=25, b=25),
+            title_font_size=20
+        )
+
+        return fig
+
+    except Exception as e:
+        print(f"Error creating sunburst visualization: {str(e)}")
+        return px.sunburst()  # Return an empty figure if there's an error
+
+# Example usage for testing
+if __name__ == "__main__":
+    # Sample data
+    sample_data = pd.DataFrame({
+        'path': [
+            ['Agriculture', 'Crops', 'Food Crops'],
+            ['Agriculture', 'Crops', 'Cash Crops'],
+            ['Agriculture', 'Livestock'],
+            ['Industry', 'Manufacturing', 'Electronics'],
+            ['Industry', 'Manufacturing', 'Textiles'],
+            ['Industry', 'Construction'],
+            ['Services', 'IT Services'],
+            ['Services', 'Tourism'],
+            ['Services', 'Finance']
+        ],
+        'value': [50, 30, 20, 100, 80, 60, 150, 70, 90]
+    })
+    fig = get_sunburst_viz(sample_data)
+    fig.show()
+
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/preprocessing/preprocess.py
+Content:
+----------------------------------------
+
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/preprocessing/__init__.py
+Content:
+----------------------------------------
+
+----------------------------------------
+
+File: /Users/vishalsingh/python/CS661_dashboard/assets/css/style.css
+Content:
+----------------------------------------
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #333;
+    overflow-x: hidden;
+}
+
+/* Dashboard container */
+.dashboard-container {
+    display: flex;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* Sidebar styles */
+.sidebar {
+    width: 250px;
+    background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
+    padding: 20px 0;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    position: fixed;
+    height: 100vh;
+    z-index: 1000;
+}
+
+.sidebar-header {
+    padding: 0 20px 30px 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 30px;
+}
+
+.sidebar-menu {
+    padding: 0 10px;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    margin: 5px 0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #bdc3c7;
+}
+
+.sidebar-item:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    transform: translateX(5px);
+}
+
+.sidebar-item.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.sidebar-icon {
+    margin-right: 15px;
+    font-size: 16px;
+    width: 20px;
+}
+
+.sidebar-text {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Main content */
+.main-content {
+    flex: 1;
+    margin-left: 250px;
+    padding: 0;
+    background: rgba(255,255,255,0.95);
+    min-height: 100vh;
+    backdrop-filter: blur(10px);
+}
+
+/* Header */
+.header {
+    background: white;
+    padding: 20px 30px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.main-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.header-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.search-input {
+    padding: 10px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 25px;
+    width: 250px;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+}
+
+.search-icon {
+    margin-left: -40px;
+    color: #999;
+    z-index: 1;
+    position: relative;
+}
+
+.notification-container {
+    position: relative;
+    cursor: pointer;
+}
+
+.notification-icon {
+    font-size: 20px;
+    color: #666;
+    transition: color 0.3s ease;
+}
+
+.notification-icon:hover {
+    color: #667eea;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4757;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.user-avatar:hover {
+    transform: scale(1.1);
+}
+
+/* KPI Cards */
+.kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 30px;
+    margin-bottom: 20px;
+}
+
+.kpi-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    border-left: 4px solid;
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, transparent 0%, rgba(255,255,255,0.1) 100%);
+    pointer-events: none;
+}
+
+.kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.kpi-green {
+    border-left-color: #4CAF50;
+}
+
+.kpi-blue {
+    border-left-color: #2196F3;
+}
+
+.kpi-orange {
+    border-left-color: #FF9800;
+}
+
+.kpi-purple {
+    border-left-color: #9C27B0;
+}
+
+.kpi-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+    z-index: 1;
+}
+
+.kpi-icon {
+    font-size: 32px;
+    opacity: 0.8;
+}
+
+.kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.kpi-label {
+    font-size: 14px;
+    color: #7f8c8d;
+    margin: 5px 0 0 0;
+}
+
+/* Charts Grid */
+.charts-grid {
+    padding: 0 30px 30px 30px;
+}
+
+.chart-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.chart-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+    height: 450px; /* Fixed height to match or slightly exceed Plotly default */
+    display: flex;
+    flex-direction: column;
+}
+.chart-card.map-chart {
+    height: 600px;
+}
+
+.chart-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.large-chart {
+    min-height: 400px;
+}
+
+.medium-chart {
+    min-height: 350px;
+}
+
+.chart-header {
+    padding: 20px 25px 10px 25px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    flex-shrink: 0; /* Prevents header from shrinking */
+    height: 60px; /* Fixed height for header */
+}
+
+.chart-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.chart-expand {
+    color: #999;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.chart-expand:hover {
+    color: #667eea;
+}
+
+.chart-dropdown {
+    width: 120px;
+    font-size: 14px;
+}
+
+.chart-graph {
+    flex: 1; /* Allows the graph to take remaining space */
+    padding: 10px;
+    min-height: 0; /* Prevents flex item from expanding beyond container */
+}
+
+/* Plotly graph customization */
+.js-plotly-plot .plotly .main-svg {
+    border-radius: 10px;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+    .sidebar {
+        width: 70px;
+    }
+    
+    .main-content {
+        margin-left: 70px;
+    }
+    
+    .sidebar-text {
+        display: none;
+    }
+    
+    .sidebar-item {
+        padding: 15px 10px;
+        justify-content: center;
+    }
+    
+    .sidebar-icon {
+        margin-right: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        display: none;
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .kpi-row {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        padding: 20px;
+    }
+    
+    .chart-row {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .charts-grid {
+        padding: 0 20px 20px 20px;
+    }
+    
+    .header {
+        padding: 15px 20px;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .header-controls {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .search-input {
+        width: 200px;
+    }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+/* Animation classes */
+.fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Dark theme support */
+@media (prefers-color-scheme: dark) {
+    .chart-card {
+        background: #2c3e50;
+        color: white;
+    }
+    
+    .kpi-card {
+        background: #34495e;
+        color: white;
+    }
+    
+    .header {
+        background: #2c3e50;
+        color: white;
+    }
+    
+    .main-content {
+        background: rgba(44, 62, 80, 0.95);
+    }
+}
+----------------------------------------

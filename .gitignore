@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.env
+*.DS_Store
+
+# Data files (optional, if you don't want to upload raw/processed data)
+data/raw/*
+data/processed/*
