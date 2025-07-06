@@ -68,7 +68,7 @@ An interactive and responsive web dashboard built using Dash and Plotly to visua
    pip install -r requirements.txt
    ```
 
-4. **Verify data file paths in `app2.py`** to ensure CSVs are correctly loaded from `data/processed/`.
+4. **Verify data file paths in `app.py`** to ensure CSVs are correctly loaded from `data/processed/`.
 
 ---
 
@@ -76,7 +76,7 @@ An interactive and responsive web dashboard built using Dash and Plotly to visua
 
 ```
 NaturalDisasterDashboard/
-├── app2.py                      # Main Dash app entry
+├── app.py                      # Main Dash app entry
 ├── layout.py                    # Dashboard layout structure
 ├── assets/
 │   └── css/
@@ -117,7 +117,7 @@ NaturalDisasterDashboard/
 2. **Launch the dashboard**
 
    ```bash
-   python app2.py
+   python app.py
    ```
 
 3. Open in your browser: `http://127.0.0.1:8050/`
@@ -189,17 +189,12 @@ Follow the coding style used in the visualization modules and ensure all visuali
 
 ---
 
-## 📜 License
-
-This project is licensed under the **MIT License**. See `LICENSE` for details.
-
----
 
 ## 📬 Contact
 
 **Vishal Singh**
 
-* Email: [vishal.singh@example.com](mailto:vishal.singh@example.com)
+* Email: [vishal.singh@example.com](mailto:vishal17935@gmail.com)
 * GitHub: [@vishal-singh](https://github.com/vishal-singh)
 
 ---
