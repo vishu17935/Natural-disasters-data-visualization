@@ -194,8 +194,8 @@ Follow the coding style used in the visualization modules and ensure all visuali
 
 **Vishal Singh**
 
-* Email: [vishal.singh@example.com](mailto:vishal17935@gmail.com)
-* GitHub: [@vishal-singh](https://github.com/vishal-singh)
+* Email: [vishal17935@gmail.com](mailto:vishal17935@gmail.com)
+* GitHub: [@vishal-singh](https://github.com/vishu17935)
 
 ---
 
